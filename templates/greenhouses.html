@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="margin: 2rem 0;">
+    <h1 style="font-size: 1.8rem; color: #1b5e20; margin-bottom: 1.5rem;">All Greenhouses</h1>
+    
+    <div class="card">
+        <div class="card-header">Greenhouse Overview</div>
+        <div class="card-body">
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background-color: #f5f5f5;">
+                            <th style="padding: 0.75rem; text-align: left; border-bottom: 1px solid #ddd;">ID</th>
+                            <th style="padding: 0.75rem; text-align: left; border-bottom: 1px solid #ddd;">Name</th>
+                            <th style="padding: 0.75rem; text-align: left; border-bottom: 1px solid #ddd;">Location</th>
+                            <th style="padding: 0.75rem; text-align: left; border-bottom: 1px solid #ddd;">Status</th>
+                            <th style="padding: 0.75rem; text-align: left; border-bottom: 1px solid #ddd;">Temperature</th>
+                            <th style="padding: 0.75rem; text-align: left; border-bottom: 1px solid #ddd;">Humidity</th>
+                            <th style="padding: 0.75rem; text-align: left; border-bottom: 1px solid #ddd;">Issues</th>
+                            <th style="padding: 0.75rem; text-align: left; border-bottom: 1px solid #ddd;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for greenhouse in greenhouses %}
+                        <tr>
+                            <td style="padding: 0.75rem; text-align: left; border-bottom: 1px solid #eee;">{{ greenhouse.id }}</td>
+                            <td style="padding: 0.75rem; text-align: left; border-bottom: 1px solid #eee;">{{ greenhouse.name }}</td>
+                            <td style="padding: 0.75rem; text-align: left; border-bottom: 1px solid #eee;">{{ greenhouse.location }}</td>
+                            <td style="padding: 0.75rem; text-align: left; border-bottom: 1px solid #eee;">
+                                <span style="display: inline-flex; align-items: center;">
+                                    <span class="status-indicator status-{{ greenhouse.status }}"></span>
+                                    {{ greenhouse.status|capitalize }}
+                                </span>
+                            </td>
+                            <td style="padding: 0.75rem; text-align: left; border-bottom: 1px solid #eee;">
+                                <span class="reading-{{ greenhouse.temp_status }}">
+                                    {{ greenhouse.temperature }}°C
+                                </span>
+                            </td>
+                            <td style="padding: 0.75rem; text-align: left; border-bottom: 1px solid #eee;">
+                                <span class="reading-{{ greenhouse.humidity_status }}">
+                                    {{ greenhouse.humidity }}%
+                                </span>
+                            </td>
+                            <td style="padding: 0.75rem; text-align: left; border-bottom: 1px solid #eee;">
+                                {% set active_issues = greenhouse.open_issues + greenhouse.assigned_issues %}
+                                {% if active_issues > 0 %}
+                                <span style="color: #f44336; font-weight: 500;">
+                                    {{ active_issues }} Active
+                                </span>
+                                {% else %}
+                                <span style="color: #4caf50;">None</span>
+                                {% endif %}
+                            </td>
+                            <td style="padding: 0.75rem; text-align: left; border-bottom: 1px solid #eee;">
+                                <a href="{{ url_for('greenhouses.greenhouse_detail', id=greenhouse.id) }}" class="btn btn-primary" style="padding: 0.3rem 0.6rem; font-size: 0.9rem;">View Details</a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" style="padding: 1rem; text-align: center; color: #777;">No greenhouses found. Initialize the database first.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <h2 style="font-size: 1.5rem; color: #1b5e20; margin: 2rem 0 1rem;">Status Overview</h2>
+    
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+        <div class="card">
+            <div class="card-header">Greenhouses by Status</div>
+            <div class="card-body" style="height: 250px;">
+                <canvas id="statusChart"></canvas>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header">Recent Issues</div>
+            <div class="card-body">
+                <ul style="list-style: none; padding: 0;">
+                    {% set issues_found = false %}
+                    {% for greenhouse in greenhouses %}
+                        {% if greenhouse.status != 'normal' %}
+                            {% set issues_found = true %}
+                            <li style="padding: 0.5rem 0; border-bottom: 1px solid #eee;">
+                                <div style="font-weight: 500;">{{ greenhouse.name }}</div>
+                                <div style="color: #666; font-size: 0.9rem;">
+                                    {% if greenhouse.status == 'critical' %}
+                                    Critical condition detected.
+                                    {% elif greenhouse.status == 'warning' %}
+                                    Warning condition detected.
+                                    {% endif %}
+                                    <a href="{{ url_for('greenhouses.greenhouse_detail', id=greenhouse.id) }}" style="color: var(--info); text-decoration: none; margin-left: 5px;">Details</a>
+                                </div>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    {% if not issues_found %}
+                        <li style="padding: 0.5rem 0;">
+                            <div style="color: #4caf50; font-weight: 500;">No active issues</div>
+                            <div style="color: #666; font-size: 0.9rem;">All greenhouses are operating normally</div>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Status chart
+        const statusCtx = document.getElementById('statusChart')?.getContext('2d');
+        if (statusCtx) {
+            // Count greenhouses by status from the passed data
+            const greenhouses = {{ greenhouses|tojson }};
+            let statusCounts = { normal: 0, warning: 0, critical: 0 };
+            
+            greenhouses.forEach(greenhouse => {
+                if (greenhouse.status in statusCounts) {
+                    statusCounts[greenhouse.status]++;
+                }
+            });
+            
+            const statusChart = new Chart(statusCtx, {
+                type: 'pie',
+                data: {
+                    labels: ['Normal', 'Warning', 'Critical'],
+                    datasets: [{
+                        data: [statusCounts.normal, statusCounts.warning, statusCounts.critical],
+                        backgroundColor: [
+                            '#4caf50', // success
+                            '#ff9800', // warning
+                            '#f44336'  // danger
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: { boxWidth: 12, font: { size: 11 } }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.raw || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                                    return `${label}: ${value} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        } else {
+            console.error("Status chart canvas element not found.");
+        }
+    });
+</script>
+{% endblock %}

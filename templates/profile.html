@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="margin: 2rem 0;">
+    <h1 style="font-size: 1.8rem; color: #1b5e20; margin-bottom: 1.5rem;">My Profile</h1>
+
+    <div class="card">
+        <div class="card-header">User Information</div>
+        <div class="card-body">
+            <table style="width: 100%; max-width: 600px;">
+                <tbody>
+                    <tr>
+                        <th style="padding: 0.75rem; text-align: left; width: 30%;">Name:</th>
+                        <td style="padding: 0.75rem;">{{ user.name }}</td>
+                    </tr>
+                    <tr>
+                        <th style="padding: 0.75rem; text-align: left;">Email:</th>
+                        <td style="padding: 0.75rem;">{{ user.email }}</td>
+                    </tr>
+                    <tr>
+                        <th style="padding: 0.75rem; text-align: left;">Role:</th>
+                        <td style="padding: 0.75rem;">{{ user.role|capitalize }}</td>
+                    </tr>
+                     <tr>
+                        <th style="padding: 0.75rem; text-align: left;">Member Since:</th>
+                        <td style="padding: 0.75rem;">{{ user.created_at.strftime('%B %d, %Y') }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card" style="margin-top: 2rem;">
+        <div class="card-header">Update Profile</div>
+        <div class="card-body">
+            <form id="profileForm">
+                 <div class="form-group">
+                    <label for="profileName" class="form-label">Name</label>
+                    <input type="text" id="profileName" name="name" class="form-control" value="{{ user.name }}" required>
+                </div>
+                 <div class="form-group">
+                    <label for="profileEmail" class="form-label">Email</label>
+                    <input type="email" id="profileEmail" name="email" class="form-control" value="{{ user.email }}" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Update Profile</button>
+            </form>
+        </div>
+    </div>
+    
+    <div class="card" style="margin-top: 2rem;">
+        <div class="card-header">Change Password</div>
+        <div class="card-body">
+            <form id="passwordForm">
+                 <div class="form-group">
+                    <label for="currentPassword" class="form-label">Current Password</label>
+                    <input type="password" id="currentPassword" name="current_password" class="form-control" required>
+                </div>
+                 <div class="form-group">
+                    <label for="newPassword" class="form-label">New Password</label>
+                    <input type="password" id="newPassword" name="new_password" class="form-control" required>
+                </div>
+                 <div class="form-group">
+                    <label for="confirmPassword" class="form-label">Confirm New Password</label>
+                    <input type="password" id="confirmPassword" name="confirm_password" class="form-control" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Change Password</button>
+            </form>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const profileForm = document.getElementById('profileForm');
+        if (profileForm) {
+            profileForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                // Add API call to update profile details
+                showToast('info', 'Action Required', 'Backend endpoint for updating profile needed.');
+            });
+        }
+
+        const passwordForm = document.getElementById('passwordForm');
+        if (passwordForm) {
+            passwordForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const newPassword = document.getElementById('newPassword').value;
+                const confirmPassword = document.getElementById('confirmPassword').value;
+
+                if (newPassword !== confirmPassword) {
+                    showToast('error', 'Password Mismatch', 'New passwords do not match.');
+                    return;
+                }
+                // Add API call to change password
+                showToast('info', 'Action Required', 'Backend endpoint for changing password needed.');
+            });
+        }
+    });
+</script>
+{% endblock %}

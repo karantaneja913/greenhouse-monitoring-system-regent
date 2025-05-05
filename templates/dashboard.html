@@ -1,0 +1,418 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="dashboard">
+    <div class="dashboard-header" style="display: flex; justify-content: space-between; align-items: center; margin: 1.5rem 0;">
+        <h1 style="font-size: 1.8rem; color: #1b5e20;">Greenhouse Monitoring Dashboard</h1>
+        <button class="btn btn-primary" id="refreshBtn">Refresh Data</button>
+    </div>
+
+    <div class="stats-container">
+        <div class="stat-card">
+            <div class="stat-value" id="totalGreenhousesValue">{{ total_greenhouses }}</div>
+            <div class="stat-label">Total Greenhouses</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="criticalIssuesValue">{{ critical_issues }}</div>
+            <div class="stat-label">Critical Issues</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="warningIssuesValue">{{ warning_issues }}</div>
+            <div class="stat-label">Warning Issues</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="resolvedTodayValue">{{ resolved_today }}</div>
+            <div class="stat-label">Issues Resolved Today</div>
+        </div>
+    </div>
+
+    <h2>Greenhouse Status</h2>
+    <div class="greenhouse-grid" id="greenhouseGrid">
+        {% for greenhouse in greenhouses %}
+        <div class="greenhouse-card">
+            <div class="greenhouse-card-header">
+                <h3>{{ greenhouse.name }}</h3>
+                <div>
+                    <span class="status-indicator status-{{ greenhouse.status }}"></span>
+                    {{ greenhouse.status|capitalize }}
+                </div>
+            </div>
+            <div class="greenhouse-card-body">
+                <ul class="readings-list">
+                    <li>
+                        <span class="reading-label">Temperature</span>
+                        <span class="reading-value reading-{{ greenhouse.temp_status }}">{{ greenhouse.temperature }}°C</span>
+                    </li>
+                    <li>
+                        <span class="reading-label">Humidity</span>
+                        <span class="reading-value reading-{{ greenhouse.humidity_status }}">{{ greenhouse.humidity }}%</span>
+                    </li>
+                    <li>
+                        <span class="reading-label">Air Quality</span>
+                        <span class="reading-value reading-{{ greenhouse.air_quality_status }}">{{ greenhouse.air_quality }}</span>
+                    </li>
+                    <li>
+                        <span class="reading-label">Soil Moisture</span>
+                        <span class="reading-value reading-{{ greenhouse.soil_moisture_status }}">{{ greenhouse.soil_moisture }}</span>
+                    </li>
+                </ul>
+                <div class="action-buttons">
+                    <button class="btn btn-blue assign-employee" data-id="{{ greenhouse.id }}">Assign Employee</button>
+                    <button class="btn btn-green resolve-issue" data-id="{{ greenhouse.id }}" {% if greenhouse.status == 'normal' %}disabled{% endif %}>Mark as Resolved</button>
+                    <a href="{{ url_for('greenhouses.greenhouse_detail', id=greenhouse.id) }}" class="btn btn-primary" style="padding: 0.3rem 0.6rem; font-size: 0.9rem;">View Details</a>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <p>No greenhouses found. Initialize the database first.</p>
+        {% endfor %}
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1.5rem; margin-top: 2rem;">
+        <div class="card">
+            <div class="card-header">Issue Trends (Last 30 Days)</div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="issuesTrendChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header">Current Issues by Type</div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="issuesByTypeChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for assigning employee -->
+<div id="assignModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="modal-title">Assign Employee to Greenhouse</h2>
+            <button type="button" class="close-btn" id="closeAssignModal" aria-label="Close">&times;</button>
+        </div>
+        <form id="assignForm">
+            <input type="hidden" id="greenhouseId" name="greenhouseId">
+            <div class="form-group">
+                <label for="employee" class="form-label">Select Employee</label>
+                <select id="employee" name="employee" class="form-control" required>
+                    <option value="">-- Select Employee --</option>
+                    {% for employee in available_employees %}
+                    <option value="{{ employee.id }}">{{ employee.name }} ({{ employee.status|capitalize }})</option>
+                    {% else %}
+                    <option value="" disabled>No available employees</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="priority" class="form-label">Priority</label>
+                <select id="priority" name="priority" class="form-control" required>
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="critical">Critical</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="notes" class="form-label">Notes</label>
+                <textarea id="notes" name="notes" class="form-control" rows="3" placeholder="Add any specific instructions or notes for the employee"></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="button" id="cancelAssign" class="btn btn-cancel">Cancel</button>
+                <button type="submit" class="btn btn-submit">Assign Employee</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Charts configuration
+        const chartOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: {
+                duration: 500 // Shorter animation duration
+            },
+            elements: {
+                line: {
+                    tension: 0.3 // Less curved lines for better performance
+                },
+                point: {
+                    radius: 3 // Smaller points for better performance
+                }
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        boxWidth: 12,
+                        font: {
+                            size: 11 // Smaller font for better performance
+                        }
+                    }
+                },
+                tooltip: {
+                    enabled: true,
+                    mode: 'index',
+                    intersect: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        maxTicksLimit: 6 // Limit the number of ticks for better performance
+                    }
+                },
+                x: {
+                    ticks: {
+                        maxTicksLimit: 10, // Limit the number of ticks for better performance
+                        maxRotation: 0, // Prevent label rotation for better performance
+                        font: {
+                            size: 10 // Smaller font for better performance
+                        }
+                    }
+                }
+            }
+        };
+        
+        let issuesTrendChartInstance = null;
+        let issuesByTypeChartInstance = null;
+
+        // Function to fetch data and update charts/stats
+        function refreshDashboardData() {
+            fetch('/api/statistics')
+                .then(response => response.ok ? response.json() : Promise.reject('Failed to fetch stats'))
+                .then(data => {
+                    // Update dashboard stats
+                    document.getElementById('totalGreenhousesValue').textContent = data.total_greenhouses;
+                    document.getElementById('criticalIssuesValue').textContent = data.critical_issues;
+                    document.getElementById('warningIssuesValue').textContent = data.warning_issues;
+                    document.getElementById('resolvedTodayValue').textContent = data.resolved_today;
+
+                    // --- Trend Chart ---
+                    const trendCtx = document.getElementById('issuesTrendChart')?.getContext('2d');
+                    if (trendCtx) {
+                        const labels = data.trend_data.map(item => item.day);
+                        const criticalData = data.trend_data.map(item => item.critical);
+                        const warningData = data.trend_data.map(item => item.warning);
+                        const resolvedData = data.trend_data.map(item => item.resolved);
+                        
+                        if (issuesTrendChartInstance) {
+                            issuesTrendChartInstance.data.labels = labels;
+                            issuesTrendChartInstance.data.datasets[0].data = criticalData;
+                            issuesTrendChartInstance.data.datasets[1].data = warningData;
+                            issuesTrendChartInstance.data.datasets[2].data = resolvedData;
+                            issuesTrendChartInstance.update();
+                        } else {
+                            issuesTrendChartInstance = new Chart(trendCtx, {
+                                type: 'line',
+                                data: {
+                                    labels: labels,
+                                    datasets: [
+                                        { label: 'Critical Issues', data: criticalData, borderColor: '#f44336', backgroundColor: 'rgba(244, 67, 54, 0.1)', borderWidth: 2 },
+                                        { label: 'Warning Issues', data: warningData, borderColor: '#ff9800', backgroundColor: 'rgba(255, 152, 0, 0.1)', borderWidth: 2 },
+                                        { label: 'Resolved Issues', data: resolvedData, borderColor: '#4caf50', backgroundColor: 'rgba(76, 175, 80, 0.1)', borderWidth: 2 }
+                                    ]
+                                },
+                                options: chartOptions
+                            });
+                        }
+                    }
+
+                    // --- Issues by Type Chart ---
+                    const typeCtx = document.getElementById('issuesByTypeChart')?.getContext('2d');
+                     if (typeCtx) {
+                        const issueTypes = Object.keys(data.issues_by_type || {});
+                        const issueTypeCounts = Object.values(data.issues_by_type || {});
+                        
+                        // Use default if no data
+                        const displayLabels = issueTypes.length > 0 ? issueTypes : ['No Active Issues'];
+                        const displayCounts = issueTypeCounts.length > 0 ? issueTypeCounts : [1];
+                        const displayColors = issueTypes.length > 0 ? ['#f44336', '#ff9800', '#2196f3', '#4caf50', '#9c27b0', '#03a9f4'] : ['#cccccc'];
+
+                        if (issuesByTypeChartInstance) {
+                             issuesByTypeChartInstance.data.labels = displayLabels;
+                             issuesByTypeChartInstance.data.datasets[0].data = displayCounts;
+                             issuesByTypeChartInstance.data.datasets[0].backgroundColor = displayColors;
+                             issuesByTypeChartInstance.update();
+                        } else {
+                            issuesByTypeChartInstance = new Chart(typeCtx, {
+                                type: 'doughnut',
+                                data: {
+                                    labels: displayLabels,
+                                    datasets: [{
+                                        data: displayCounts,
+                                        backgroundColor: displayColors,
+                                        borderWidth: 1
+                                    }]
+                                },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } } },
+                                    cutout: '60%',
+                                    animation: { duration: 500 }
+                                }
+                            });
+                        }
+                     }
+                })
+                .catch(error => {
+                    console.error("Error fetching statistics:", error);
+                    showToast('error', 'Data Error', 'Could not load dashboard statistics.');
+                });
+        }
+        
+        // Initial data load
+        refreshDashboardData();
+        
+        // Modal functionality
+        const assignModal = document.getElementById('assignModal');
+        const assignButtons = document.querySelectorAll('.assign-employee');
+        const closeModalBtn = document.getElementById('closeAssignModal');
+        const cancelBtn = document.getElementById('cancelAssign');
+        const greenhouseIdInput = document.getElementById('greenhouseId');
+        const assignForm = document.getElementById('assignForm');
+
+        if (assignModal && closeModalBtn && cancelBtn && assignForm) {
+            assignButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const greenhouseId = this.getAttribute('data-id');
+                    greenhouseIdInput.value = greenhouseId;
+                    // TODO: Potentially fetch available employees specifically for this greenhouse/time?
+                    assignModal.style.display = 'block';
+                });
+            });
+
+            function closeAssignModal() {
+                assignModal.style.display = 'none';
+                assignForm.reset();
+            }
+
+            closeModalBtn.addEventListener('click', closeAssignModal);
+            cancelBtn.addEventListener('click', closeAssignModal);
+
+            // Close modal if clicking outside the content
+            window.addEventListener('click', function(event) {
+                if (event.target === assignModal) {
+                    closeAssignModal();
+                }
+            });
+
+            assignForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const greenhouseId = greenhouseIdInput.value;
+                const employeeId = document.getElementById('employee').value;
+                const priority = document.getElementById('priority').value;
+                const notes = document.getElementById('notes').value;
+                
+                if (!employeeId) {
+                    showToast('error', 'Validation Error', 'Please select an employee.');
+                    return;
+                }
+
+                fetch('/api/assign-employee', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        greenhouse_id: greenhouseId,
+                        employee_id: employeeId,
+                        priority: priority,
+                        notes: notes
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showToast('success', 'Employee Assigned', data.message);
+                        closeAssignModal();
+                        // Optionally update UI without full reload
+                        // For simplicity, we might just reload or re-fetch data
+                        // refreshDashboardData(); // Re-fetch might not show immediate status change
+                        setTimeout(() => location.reload(), 1500); // Simple reload after delay
+                    } else {
+                        showToast('error', 'Assignment Failed', data.message || 'Could not assign employee.');
+                    }
+                })
+                .catch(error => {
+                    showToast('error', 'Assignment Failed', 'An error occurred.');
+                    console.error(error);
+                });
+            });
+        }
+
+        // Resolve issue buttons
+        const resolveButtons = document.querySelectorAll('.resolve-issue:not([disabled])');
+        resolveButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const greenhouseId = this.getAttribute('data-id');
+                
+                if (confirm(`Are you sure you want to mark issues for Greenhouse #${greenhouseId} as resolved?`)) {
+                    fetch('/api/resolve-issue', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ greenhouse_id: greenhouseId })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showToast('success', 'Issue Resolved', data.message);
+                            // Update UI directly or reload
+                            const card = this.closest('.greenhouse-card');
+                            if (card) {
+                                const statusIndicator = card.querySelector('.status-indicator');
+                                const statusText = statusIndicator?.nextSibling;
+                                if (statusIndicator && statusText) {
+                                     statusIndicator.className = 'status-indicator status-normal';
+                                     statusText.textContent = ' Normal';
+                                }
+                                this.disabled = true; // Disable the button
+                                // Also disable assign button if needed
+                                const assignBtn = card.querySelector('.assign-employee');
+                                if (assignBtn) assignBtn.disabled = true; // Or hide/change text
+                            }
+                             refreshDashboardData(); // Refresh stats and charts
+                            // setTimeout(() => location.reload(), 1500); // Alternative: reload page
+                        } else {
+                            showToast('error', 'Resolution Failed', data.message || 'Could not resolve issue.');
+                        }
+                    })
+                    .catch(error => {
+                        showToast('error', 'Resolution Failed', 'An error occurred.');
+                        console.error(error);
+                    });
+                }
+            });
+        });
+
+        // Refresh button
+        const refreshBtn = document.getElementById('refreshBtn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', function() {
+                this.textContent = 'Refreshing...';
+                this.disabled = true;
+                
+                // Re-fetch data and update UI
+                refreshDashboardData(); 
+                
+                // Simulate refresh delay and re-enable button
+                setTimeout(() => {
+                    this.textContent = 'Refresh Data';
+                    this.disabled = false;
+                    showToast('info', 'Data Refreshed', 'Dashboard data updated.');
+                }, 1000); 
+            });
+        }
+    });
+</script>
+{% endblock %}

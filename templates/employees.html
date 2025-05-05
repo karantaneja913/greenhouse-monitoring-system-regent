@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="margin: 2rem 0;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <h1 style="font-size: 1.8rem; color: #1b5e20;">Employee Management</h1>
+        <button class="btn btn-primary" id="addEmployeeBtn">Add New Employee</button>
+    </div>
+
+    <div class="card">
+        <div class="card-header">Employee List</div>
+        <div class="card-body">
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>Status</th>
+                            <th>Active Issues</th>
+                            <th>Resolved Issues</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for employee in employees %}
+                        <tr>
+                            <td>{{ employee.id }}</td>
+                            <td>{{ employee.name }}</td>
+                            <td>{{ employee.email }}</td>
+                            <td>{{ employee.phone }}</td>
+                            <td>
+                                <span style="padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; color: white; background-color: {{ 'var(--success)' if employee.status == 'available' else 'var(--warning)' }};">
+                                    {{ employee.status|capitalize }}
+                                </span>
+                            </td>
+                            <td>{{ employee.active_issues }}</td>
+                            <td>{{ employee.resolved_issues }}</td>
+                            <td>
+                                <button class="btn btn-blue" style="padding: 0.3rem 0.6rem; font-size: 0.9rem;">Edit</button>
+                                {# Add delete button if needed, with confirmation #}
+                                {# <button class="btn btn-danger" style="padding: 0.3rem 0.6rem; font-size: 0.9rem;">Delete</button> #}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" style="text-align: center; color: #777;">No employees found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for adding/editing employee (Example Structure) -->
+<div id="employeeModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="modal-title" id="employeeModalTitle">Add New Employee</h2>
+            <button type="button" class="close-btn" id="closeEmployeeModal" aria-label="Close">&times;</button>
+        </div>
+        <form id="employeeForm">
+            <input type="hidden" id="employeeId" name="employeeId">
+            <div class="form-group">
+                <label for="employeeName" class="form-label">Name</label>
+                <input type="text" id="employeeName" name="name" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label for="employeeEmail" class="form-label">Email</label>
+                <input type="email" id="employeeEmail" name="email" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label for="employeePhone" class="form-label">Phone</label>
+                <input type="tel" id="employeePhone" name="phone" class="form-control">
+            </div>
+             <div class="form-group">
+                <label for="employeeStatus" class="form-label">Status</label>
+                <select id="employeeStatus" name="status" class="form-control" required>
+                    <option value="available">Available</option>
+                    <option value="busy">Busy</option>
+                    {# Add other statuses if needed #}
+                </select>
+            </div>
+            <div class="form-actions">
+                <button type="button" id="cancelEmployee" class="btn btn-cancel">Cancel</button>
+                <button type="submit" class="btn btn-submit">Save Employee</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const addEmployeeBtn = document.getElementById('addEmployeeBtn');
+        const employeeModal = document.getElementById('employeeModal');
+        const closeEmployeeModalBtn = document.getElementById('closeEmployeeModal');
+        const cancelEmployeeBtn = document.getElementById('cancelEmployee');
+        const employeeForm = document.getElementById('employeeForm');
+        const employeeModalTitle = document.getElementById('employeeModalTitle');
+        const employeeIdInput = document.getElementById('employeeId');
+
+        function openEmployeeModal(title = "Add New Employee", employee = null) {
+            employeeModalTitle.textContent = title;
+            employeeForm.reset(); // Clear form
+            employeeIdInput.value = ''; // Clear hidden ID
+
+            if (employee) {
+                // Populate form for editing (assuming you add edit buttons later)
+                employeeIdInput.value = employee.id;
+                document.getElementById('employeeName').value = employee.name;
+                document.getElementById('employeeEmail').value = employee.email;
+                document.getElementById('employeePhone').value = employee.phone;
+                document.getElementById('employeeStatus').value = employee.status;
+            }
+            
+            if (employeeModal) {
+                employeeModal.style.display = 'block';
+            }
+        }
+
+        function closeEmployeeModal() {
+             if (employeeModal) {
+                employeeModal.style.display = 'none';
+             }
+        }
+
+        if (addEmployeeBtn) {
+            addEmployeeBtn.addEventListener('click', () => openEmployeeModal());
+        }
+        if (closeEmployeeModalBtn) {
+            closeEmployeeModalBtn.addEventListener('click', closeEmployeeModal);
+        }
+        if (cancelEmployeeBtn) {
+            cancelEmployeeBtn.addEventListener('click', closeEmployeeModal);
+        }
+
+        // Close modal on outside click
+        window.addEventListener('click', function(event) {
+            if (event.target === employeeModal) {
+                closeEmployeeModal();
+            }
+        });
+
+        // Handle form submission (needs backend API endpoint)
+        if (employeeForm) {
+            employeeForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const employeeId = employeeIdInput.value;
+                const formData = new FormData(employeeForm);
+                const data = Object.fromEntries(formData.entries());
+                
+                // Determine API endpoint (add or update)
+                const url = employeeId ? `/api/employees/update/${employeeId}` : '/api/employees/add';
+                const method = employeeId ? 'PUT' : 'POST'; // Or POST for both if preferred
+
+                console.log("Submitting employee data:", data, "to", url, "with method", method);
+                
+                // Example: Replace with actual API call
+                // fetch(url, { method: method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) })
+                // .then(response => response.json())
+                // .then(result => { ... handle success/error ... });
+
+                showToast('info', 'Action Required', 'Backend endpoint for adding/editing employees needs implementation.');
+                closeEmployeeModal(); 
+                // setTimeout(() => location.reload(), 1500); // Reload after showing message
+            });
+        }
+        
+        // Add event listeners for edit buttons if they exist
+        // document.querySelectorAll('.edit-employee-btn').forEach(button => {
+        //     button.addEventListener('click', function() {
+        //         const employeeId = this.dataset.id;
+        //         // Fetch employee data via API: fetch(`/api/employees/${employeeId}`)
+        //         // Then call openEmployeeModal("Edit Employee", employeeData);
+        //         showToast('info', 'Action Required', 'Backend endpoint for fetching employee details needed.');
+        //     });
+        // });
+    });
+</script>
+{% endblock %}

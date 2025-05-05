@@ -1,0 +1,441 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="margin: 2rem 0;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <h1 style="font-size: 1.8rem; color: #1b5e20;">{{ greenhouse.name }} Details</h1>
+        <a href="{{ url_for('greenhouses.list_greenhouses') }}" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 0.5rem;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+            Back to All Greenhouses
+        </a>
+    </div>
+    
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem;">
+        <div class="card">
+            <div class="card-header">Greenhouse Information</div>
+            <div class="card-body">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        <th style="padding: 0.5rem; text-align: left; width: 40%;">ID:</th>
+                        <td style="padding: 0.5rem;">{{ greenhouse.id }}</td>
+                    </tr>
+                    <tr>
+                        <th style="padding: 0.5rem; text-align: left;">Location:</th>
+                        <td style="padding: 0.5rem;">{{ greenhouse.location }}</td>
+                    </tr>
+                    <tr>
+                        <th style="padding: 0.5rem; text-align: left;">Status:</th>
+                        <td style="padding: 0.5rem;">
+                            <span style="display: inline-flex; align-items: center;">
+                                <span class="status-indicator status-{{ greenhouse.status }}"></span>
+                                {{ greenhouse.status|capitalize }}
+                            </span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">Current Readings</div>
+            <div class="card-body">
+                {% if latest_reading %}
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        <th style="padding: 0.5rem; text-align: left; width: 40%;">Temperature:</th>
+                        <td style="padding: 0.5rem;">
+                            <span class="reading-{{ temp_status }}">
+                                {{ latest_reading.temperature }}°C
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th style="padding: 0.5rem; text-align: left;">Humidity:</th>
+                        <td style="padding: 0.5rem;">
+                            <span class="reading-{{ humidity_status }}">
+                                {{ latest_reading.humidity }}%
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th style="padding: 0.5rem; text-align: left;">Air Quality:</th>
+                        <td style="padding: 0.5rem;">
+                            <span class="reading-{{ air_quality_status }}">
+                                {{ latest_reading.air_quality }}
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th style="padding: 0.5rem; text-align: left;">Soil Moisture:</th>
+                        <td style="padding: 0.5rem;">
+                            <span class="reading-{{ soil_moisture_status }}">
+                                {{ latest_reading.soil_moisture }}
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th style="padding: 0.5rem; text-align: left;">Light Level:</th>
+                        <td style="padding: 0.5rem;">{{ latest_reading.light_level }} lux</td>
+                    </tr>
+                    <tr>
+                        <th style="padding: 0.5rem; text-align: left;">Last Updated:</th>
+                        <td style="padding: 0.5rem;">{{ latest_reading.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+                    </tr>
+                </table>
+                {% else %}
+                <p>No readings available</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header">Historical Data (Last 30 Readings)</div>
+        <div class="card-body">
+            <div style="height: 300px;">
+                <canvas id="historicalChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-top: 1.5rem;">
+        <div class="card">
+            <div class="card-header">Open Issues</div>
+            <div class="card-body">
+                {% if open_issues %}
+                <ul style="list-style: none; padding: 0;">
+                    {% for issue in open_issues %}
+                    <li style="padding: 0.5rem 0; border-bottom: 1px solid #eee;">
+                        <div style="font-weight: 500;">Issue #{{ issue.id }} ({{ issue.issue_type|capitalize }})</div>
+                        <div style="color: #666; font-size: 0.9rem;">{{ issue.description }}</div>
+                        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;">
+                            <span style="background-color: #f5f5f5; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">
+                                Priority: {{ issue.priority|capitalize }}
+                            </span>
+                            <span style="background-color: #f5f5f5; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">
+                                Status: {{ issue.status|capitalize }}
+                            </span>
+                             {% if issue.assigned_employee %}
+                             <span style="background-color: #f5f5f5; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">
+                                Assigned: {{ issue.assigned_employee.name }}
+                            </span>
+                             {% endif %}
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p>No open issues for this greenhouse.</p>
+                {% endif %}
+                
+                <div style="margin-top: 1rem;">
+                    {% if greenhouse.status != 'normal' or open_issues %}
+                    <div class="action-buttons">
+                        <button class="btn btn-blue assign-employee" data-id="{{ greenhouse.id }}">Assign/Reassign Employee</button>
+                        <button class="btn btn-green resolve-issue" data-id="{{ greenhouse.id }}">Mark All Resolved</button>
+                    </div>
+                    {% else %}
+                    <button class="btn btn-green" disabled>All Issues Resolved</button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">Add Manual Reading</div>
+            <div class="card-body">
+                <form id="readingForm">
+                    <div class="form-group">
+                        <label for="temperature" class="form-label">Temperature (°C)</label>
+                        <input type="number" id="temperature" name="temperature" class="form-control" step="0.1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="humidity" class="form-label">Humidity (%)</label>
+                        <input type="number" id="humidity" name="humidity" class="form-control" step="0.1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="air_quality" class="form-label">Air Quality</label>
+                        <select id="air_quality" name="air_quality" class="form-control" required>
+                            <option value="Good">Good</option>
+                            <option value="Fair">Fair</option>
+                            <option value="Poor">Poor</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="soil_moisture" class="form-label">Soil Moisture</label>
+                        <select id="soil_moisture" name="soil_moisture" class="form-control" required>
+                            <option value="Good">Good</option>
+                            <option value="Low">Low</option>
+                            <option value="Very Low">Very Low</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="light_level" class="form-label">Light Level (lux)</label>
+                        <input type="number" id="light_level" name="light_level" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">Add Reading</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for assigning employee -->
+<div id="assignModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="modal-title">Assign Employee to Greenhouse</h2>
+            <button type="button" class="close-btn" id="closeAssignModal" aria-label="Close">&times;</button>
+        </div>
+        <form id="assignForm">
+            <input type="hidden" id="greenhouseId" name="greenhouseId" value="{{ greenhouse.id }}">
+            <div class="form-group">
+                <label for="employee" class="form-label">Select Employee</label>
+                <select id="employee" name="employee" class="form-control" required>
+                    <option value="">-- Select Employee --</option>
+                    {% for employee in available_employees %}
+                    <option value="{{ employee.id }}">{{ employee.name }} ({{ employee.status|capitalize }})</option>
+                    {% else %}
+                     <option value="" disabled>No employees available</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="priority" class="form-label">Priority</label>
+                <select id="priority" name="priority" class="form-control" required>
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="critical">Critical</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="notes" class="form-label">Notes</label>
+                <textarea id="notes" name="notes" class="form-control" rows="3" placeholder="Add any specific instructions or notes for the employee"></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="button" id="cancelAssign" class="btn btn-cancel">Cancel</button>
+                <button type="submit" class="btn btn-submit">Assign Employee</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Historical data chart
+        const ctx = document.getElementById('historicalChart')?.getContext('2d');
+        if (ctx) {
+            // Parse data from the server
+            const dates = {{ reading_dates|safe }};
+            const temperatures = {{ temperatures|safe }};
+            const humidities = {{ humidities|safe }};
+            
+            const historicalChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [
+                        {
+                            label: 'Temperature (°C)',
+                            data: temperatures,
+                            borderColor: '#f44336',
+                            backgroundColor: 'rgba(244, 67, 54, 0.1)',
+                            yAxisID: 'y',
+                            tension: 0.3,
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Humidity (%)',
+                            data: humidities,
+                            borderColor: '#2196f3',
+                            backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                            yAxisID: 'y1',
+                            tension: 0.3,
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: { display: true, text: 'Temperature (°C)' }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            title: { display: true, text: 'Humidity (%)' },
+                            grid: { drawOnChartArea: false }
+                        },
+                        x: {
+                            ticks: {
+                                maxTicksLimit: 10,
+                                maxRotation: 45,
+                                minRotation: 45,
+                                font: { size: 10 }
+                            }
+                        }
+                    },
+                    plugins: {
+                         legend: { position: 'top' }
+                    }
+                }
+            });
+        } else {
+            console.error("Historical chart canvas element not found.");
+        }
+        
+        // Modal functionality
+        const assignModal = document.getElementById('assignModal');
+        const assignButtons = document.querySelectorAll('.assign-employee');
+        const closeModalBtn = document.getElementById('closeAssignModal');
+        const cancelBtn = document.getElementById('cancelAssign');
+        const assignForm = document.getElementById('assignForm');
+
+        if (assignModal && closeModalBtn && cancelBtn && assignForm) {
+            assignButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    assignModal.style.display = 'block';
+                });
+            });
+
+            function closeAssignModal() {
+                assignModal.style.display = 'none';
+                assignForm.reset();
+            }
+
+            closeModalBtn.addEventListener('click', closeAssignModal);
+            cancelBtn.addEventListener('click', closeAssignModal);
+
+            window.addEventListener('click', function(event) {
+                if (event.target === assignModal) {
+                    closeAssignModal();
+                }
+            });
+
+            assignForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const greenhouseId = document.getElementById('greenhouseId').value;
+                const employeeId = document.getElementById('employee').value;
+                const priority = document.getElementById('priority').value;
+                const notes = document.getElementById('notes').value;
+
+                if (!employeeId) {
+                    showToast('error', 'Validation Error', 'Please select an employee.');
+                    return;
+                }
+                
+                fetch('/api/assign-employee', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        greenhouse_id: greenhouseId,
+                        employee_id: employeeId,
+                        priority: priority,
+                        notes: notes
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showToast('success', 'Employee Assigned', data.message);
+                        closeAssignModal();
+                        setTimeout(() => location.reload(), 1500); // Reload to show updated assignment
+                    } else {
+                        showToast('error', 'Assignment Failed', data.message || 'Could not assign employee.');
+                    }
+                })
+                .catch(error => {
+                    showToast('error', 'Assignment Failed', 'An error occurred.');
+                    console.error(error);
+                });
+            });
+        }
+        
+        // Resolve issue buttons
+        const resolveButtons = document.querySelectorAll('.resolve-issue');
+        resolveButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const greenhouseId = this.getAttribute('data-id');
+                
+                if (confirm(`Are you sure you want to mark all active issues for Greenhouse #${greenhouseId} as resolved?`)) {
+                    fetch('/api/resolve-issue', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ greenhouse_id: greenhouseId })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showToast('success', 'Issues Resolved', data.message);
+                            setTimeout(() => location.reload(), 1500); // Reload to show updated status
+                        } else {
+                            showToast('error', 'Resolution Failed', data.message || 'Could not resolve issues.');
+                        }
+                    })
+                    .catch(error => {
+                        showToast('error', 'Resolution Failed', 'An error occurred.');
+                        console.error(error);
+                    });
+                }
+            });
+        });
+        
+        // Add reading form
+        const readingForm = document.getElementById('readingForm');
+        if (readingForm) {
+            readingForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const temperature = parseFloat(document.getElementById('temperature').value);
+                const humidity = parseFloat(document.getElementById('humidity').value);
+                const airQuality = document.getElementById('air_quality').value;
+                const soilMoisture = document.getElementById('soil_moisture').value;
+                const lightLevel = parseFloat(document.getElementById('light_level').value);
+                
+                fetch('/api/readings/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        greenhouse_id: {{ greenhouse.id }},
+                        temperature: temperature,
+                        humidity: humidity,
+                        air_quality: airQuality,
+                        soil_moisture: soilMoisture,
+                        light_level: lightLevel
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showToast('success', 'Reading Added', 'New reading has been successfully added');
+                        setTimeout(() => location.reload(), 1500); // Reload to show updated readings and status
+                    } else {
+                        showToast('error', 'Error Adding Reading', data.message || 'Could not add reading.');
+                    }
+                })
+                .catch(error => {
+                    showToast('error', 'Error', 'An error occurred while adding the reading');
+                    console.error(error);
+                });
+            });
+        }
+    });
+</script>
+{% endblock %}

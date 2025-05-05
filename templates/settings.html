@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="margin: 2rem 0;">
+    <h1 style="font-size: 1.8rem; color: #1b5e20; margin-bottom: 1.5rem;">Settings</h1>
+
+    <div class="card">
+        <div class="card-header">Account Settings</div>
+        <div class="card-body">
+            <p>Manage your account preferences here.</p>
+            {# Add forms for changing password, email, etc. #}
+            <a href="{{ url_for('main.profile') }}" class="btn btn-primary">View Profile</a>
+        </div>
+    </div>
+
+    {% if session.user_role == 'admin' %}
+    <div class="card" style="margin-top: 2rem;">
+        <div class="card-header">User Management</div>
+        <div class="card-body">
+            <p>Manage system users (Admin only).</p>
+             <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td>{{ user.id }}</td>
+                            <td>{{ user.name }}</td>
+                            <td>{{ user.email }}</td>
+                            <td>{{ user.role|capitalize }}</td>
+                            <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>
+                            <td>
+                                <button class="btn btn-blue" style="padding: 0.3rem 0.6rem; font-size: 0.9rem;">Edit Role</button>
+                                {# Add delete user button #}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" style="text-align: center; color: #777;">No other users found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+             <button class="btn btn-primary" style="margin-top: 1rem;">Add New User</button>
+        </div>
+    </div>
+    
+    <div class="card" style="margin-top: 2rem;">
+        <div class="card-header">System Configuration</div>
+        <div class="card-body">
+            <p>Configure system-wide settings (Admin only).</p>
+            {# Add forms for threshold settings, notification preferences, etc. #}
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Add JS for modals or interactive settings if needed
+</script>
+{% endblock %}

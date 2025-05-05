@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="margin: 2rem 0;">
+    <h1 style="font-size: 1.8rem; color: #1b5e20; margin-bottom: 1.5rem;">System Reports</h1>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+        <div class="stat-card">
+            <div class="stat-value">{{ total_greenhouses }}</div>
+            <div class="stat-label">Total Greenhouses</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ current_issues }}</div>
+            <div class="stat-label">Current Active Issues</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ avg_resolution_time }} hrs</div>
+            <div class="stat-label">Avg. Issue Resolution Time</div>
+        </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+        <div class="card">
+            <div class="card-header">Issues by Type</div>
+            <div class="card-body" style="height: 300px;">
+                <canvas id="issueTypeChart"></canvas>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header">Issues by Status</div>
+            <div class="card-body" style="height: 300px;">
+                <canvas id="issueStatusChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">Recent Issues (Last 10)</div>
+        <div class="card-body">
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Greenhouse</th>
+                            <th>Type</th>
+                            <th>Priority</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                            <th>Assigned To</th>
+                            <th>Resolved</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for issue in recent_issues %}
+                        <tr>
+                            <td>{{ issue.id }}</td>
+                            <td>{{ issue.greenhouse.name }}</td>
+                            <td>{{ issue.issue_type|capitalize }}</td>
+                            <td>{{ issue.priority|capitalize }}</td>
+                            <td>{{ issue.status|capitalize }}</td>
+                            <td>{{ issue.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>{{ issue.assigned_employee.name if issue.assigned_employee else 'Unassigned' }}</td>
+                            <td>{{ issue.resolved_at.strftime('%Y-%m-%d %H:%M') if issue.resolved_at else '-' }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" style="text-align: center; color: #777;">No recent issues found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Issues by Type Chart
+        const typeCtx = document.getElementById('issueTypeChart')?.getContext('2d');
+        if (typeCtx) {
+            const issueTypesData = {{ issue_types|tojson }};
+            const typeLabels = Object.keys(issueTypesData);
+            const typeCounts = Object.values(issueTypesData);
+            
+            new Chart(typeCtx, {
+                type: 'bar', // Changed to bar chart for better comparison
+                data: {
+                    labels: typeLabels.length > 0 ? typeLabels.map(l => l.charAt(0).toUpperCase() + l.slice(1)) : ['No Data'],
+                    datasets: [{
+                        label: 'Issue Count',
+                        data: typeCounts.length > 0 ? typeCounts : [0],
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.6)',
+                            'rgba(54, 162, 235, 0.6)',
+                            'rgba(255, 206, 86, 0.6)',
+                            'rgba(75, 192, 192, 0.6)',
+                            'rgba(153, 102, 255, 0.6)',
+                            'rgba(255, 159, 64, 0.6)'
+                        ],
+                        borderColor: [
+                            'rgba(255, 99, 132, 1)',
+                            'rgba(54, 162, 235, 1)',
+                            'rgba(255, 206, 86, 1)',
+                            'rgba(75, 192, 192, 1)',
+                            'rgba(153, 102, 255, 1)',
+                            'rgba(255, 159, 64, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y', // Horizontal bars if preferred
+                    scales: {
+                        x: { beginAtZero: true }
+                    },
+                    plugins: {
+                        legend: { display: false } // Hide legend for bar chart
+                    }
+                }
+            });
+        }
+
+        // Issues by Status Chart
+        const statusCtx = document.getElementById('issueStatusChart')?.getContext('2d');
+         if (statusCtx) {
+            const issueStatusesData = {{ issue_statuses|tojson }};
+            const statusLabels = Object.keys(issueStatusesData);
+            const statusCounts = Object.values(issueStatusesData);
+            
+            // Define colors for specific statuses
+            const statusColors = {
+                open: 'rgba(255, 99, 132, 0.6)', // Reddish
+                assigned: 'rgba(54, 162, 235, 0.6)', // Blueish
+                resolved: 'rgba(75, 192, 192, 0.6)' // Greenish
+            };
+            const backgroundColors = statusLabels.map(label => statusColors[label] || 'rgba(201, 203, 207, 0.6)'); // Default grey
+
+            new Chart(statusCtx, {
+                type: 'pie',
+                data: {
+                    labels: statusLabels.length > 0 ? statusLabels.map(l => l.charAt(0).toUpperCase() + l.slice(1)) : ['No Data'],
+                    datasets: [{
+                        data: statusCounts.length > 0 ? statusCounts : [1],
+                        backgroundColor: backgroundColors,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } }
+                    }
+                }
+            });
+         }
+    });
+</script>
+{% endblock %}
