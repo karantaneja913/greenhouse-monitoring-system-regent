@@ -52,8 +52,8 @@ This is a Flask-based web application for monitoring greenhouse conditions, mana
 
 ## Default Login Credentials
 
-*   **Email:** `admin@greentech.com`
-*   **Password:** `admin123`
+*   **Email:** `karan.taneja@greentech.com`
+*   **Password:** `password123`
 
 ## Project Structure
 
